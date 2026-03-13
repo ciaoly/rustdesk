@@ -1081,7 +1081,8 @@ fn get_api_server_(api: String, custom: String) -> String {
             return format!("http://{}", s);
         }
     }
-    "https://admin.rustdesk.com".to_owned()
+    // LAN DEPLOYMENT: Changed to localhost to prevent external network requests
+    "http://127.0.0.1:21114".to_owned()
 }
 
 #[inline]

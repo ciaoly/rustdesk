@@ -16,8 +16,14 @@ enum UpdateMsg {
     Exit,
 }
 
+// DISABLED FOR LAN DEPLOYMENT - Auto-update thread disabled
+// lazy_static::lazy_static! {
+//     static ref TX_MSG : Mutex<Sender<UpdateMsg>> = Mutex::new(start_auto_update_check());
+// }
+
+// Dummy sender for disabled auto-update
 lazy_static::lazy_static! {
-    static ref TX_MSG : Mutex<Sender<UpdateMsg>> = Mutex::new(start_auto_update_check());
+    static ref TX_MSG : Mutex<Option<Sender<UpdateMsg>>> = Mutex::new(None);
 }
 
 static CONTROLLING_SESSION_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -28,22 +34,24 @@ pub fn update_controlling_session_count(count: usize) {
     CONTROLLING_SESSION_COUNT.store(count, Ordering::SeqCst);
 }
 
+// DISABLED FOR LAN DEPLOYMENT
 #[allow(dead_code)]
 pub fn start_auto_update() {
-    let _sender = TX_MSG.lock().unwrap();
+    // Auto-update disabled for LAN deployment
+    log::debug!("Auto-update is disabled for LAN deployment");
 }
 
 #[allow(dead_code)]
 pub fn manually_check_update() -> ResultType<()> {
-    let sender = TX_MSG.lock().unwrap();
-    sender.send(UpdateMsg::CheckUpdate)?;
+    // Auto-update disabled for LAN deployment
+    log::debug!("Manual update check is disabled for LAN deployment");
     Ok(())
 }
 
 #[allow(dead_code)]
 pub fn stop_auto_update() {
-    let sender = TX_MSG.lock().unwrap();
-    sender.send(UpdateMsg::Exit).unwrap_or_default();
+    // Auto-update disabled for LAN deployment
+    log::debug!("Auto-update stop is disabled for LAN deployment");
 }
 
 #[inline]
@@ -75,49 +83,25 @@ fn has_no_controlling_conns() -> bool {
     true
 }
 
-fn start_auto_update_check() -> Sender<UpdateMsg> {
-    let (tx, rx) = channel();
-    std::thread::spawn(move || start_auto_update_check_(rx));
-    return tx;
+// DISABLED FOR LAN DEPLOYMENT - Auto-update check thread disabled
+fn start_auto_update_check() -> Option<Sender<UpdateMsg>> {
+    // Auto-update disabled for LAN deployment
+    log::debug!("Auto-update check thread is disabled for LAN deployment");
+    None
 }
 
+// DISABLED FOR LAN DEPLOYMENT
+#[allow(dead_code)]
 fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
-    std::thread::sleep(Duration::from_secs(30));
-    if let Err(e) = check_update(false) {
-        log::error!("Error checking for updates: {}", e);
-    }
-
-    const MIN_INTERVAL: Duration = Duration::from_secs(60 * 10);
-    const RETRY_INTERVAL: Duration = Duration::from_secs(60 * 30);
-    let mut last_check_time = Instant::now();
-    let mut check_interval = DUR_ONE_DAY;
-    loop {
-        let recv_res = rx_msg.recv_timeout(check_interval);
-        match &recv_res {
-            Ok(UpdateMsg::CheckUpdate) | Err(_) => {
-                if last_check_time.elapsed() < MIN_INTERVAL {
-                    // log::debug!("Update check skipped due to minimum interval.");
-                    continue;
-                }
-                // Don't check update if there are alive connections.
-                if !has_no_active_conns() {
-                    check_interval = RETRY_INTERVAL;
-                    continue;
-                }
-                if let Err(e) = check_update(matches!(recv_res, Ok(UpdateMsg::CheckUpdate))) {
-                    log::error!("Error checking for updates: {}", e);
-                    check_interval = RETRY_INTERVAL;
-                } else {
-                    last_check_time = Instant::now();
-                    check_interval = DUR_ONE_DAY;
-                }
-            }
-            Ok(UpdateMsg::Exit) => break,
-        }
-    }
+    // Auto-update disabled for LAN deployment
+    log::debug!("Auto-update check is disabled for LAN deployment");
 }
 
 fn check_update(manually: bool) -> ResultType<()> {
+    // DISABLED FOR LAN DEPLOYMENT - Always return early
+    log::debug!("Update check is disabled for LAN deployment");
+    return Ok(());
+
     #[cfg(target_os = "windows")]
     let update_msi = crate::platform::is_msi_installed()? && !crate::is_custom_client();
     if !(manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE)) {

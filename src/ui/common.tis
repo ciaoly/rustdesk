@@ -16,6 +16,19 @@ function isEnterKey(evt) {
               (is_linux && evt.keyCode == 65421));
 }
 
+// LAN DEPLOYMENT: Ctrl+Alt+L to toggle header/toolbar
+event keydown (evt) {
+    // Check for Ctrl+Alt+L (or Cmd+Alt+L on macOS)
+    if (evt.shortcutKey && evt.altKey) {
+        var key = evt.keyCode;
+        // L key = 0x4C (76)
+        if (key == 0x4C || key == 76) {
+            toggleHeader();
+            evt.stopPropagation();
+        }
+    }
+}
+
 function getScaleFactor() {
     if (!is_win) return 1;
     var s = self.toPixels(10000dip) / 10000.;
@@ -109,6 +122,16 @@ function setWindowButontsAndIcon(only_min=false) {
     };
 }
 
+// LAN DEPLOYMENT: Header/Toolbar hidden by default, Ctrl+Alt+L to show
+var header_visible = false;
+
+function toggleHeader() {
+    header_visible = !header_visible;
+    $(header).style.set {
+        display: header_visible ? "block" : "none",
+    };
+}
+
 function adjustBorder() {
     if (is_osx) {
         if (view.windowState == View.WINDOW_FULL_SCREEN) {
@@ -117,7 +140,7 @@ function adjustBorder() {
             };
         } else {
             $(header).style.set {
-                display: "block",
+                display: header_visible ? "block" : "none",
                 padding: "0",
             };
         }
