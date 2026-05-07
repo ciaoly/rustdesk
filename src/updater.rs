@@ -76,8 +76,10 @@ fn has_no_controlling_conns() -> bool {
 }
 
 fn start_auto_update_check() -> Sender<UpdateMsg> {
-    let (tx, rx) = channel();
-    std::thread::spawn(move || start_auto_update_check_(rx));
+    let (tx, rx) = channel::<UpdateMsg>();
+    // Auto-update is disabled in LAN-only build
+    // std::thread::spawn(move || start_auto_update_check_(rx));
+    drop(rx);
     return tx;
 }
 

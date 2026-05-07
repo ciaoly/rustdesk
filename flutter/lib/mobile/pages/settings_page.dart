@@ -977,7 +977,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             SettingsTile(
               title: Text(translate("Privacy Statement")),
               onPressed: (context) =>
-                  launchUrlString('https://rustdesk.com/privacy.html'),
+                  launchUrlString('https://127.0.0.1/privacy.html'),
               leading: Icon(Icons.privacy_tip),
             )
           ],
@@ -1090,7 +1090,7 @@ void showAbout(OverlayDialogManager dialogManager) {
         Text('Version: $version'),
         InkWell(
             onTap: () async {
-              const url = 'https://rustdesk.com/';
+const url = 'https://127.0.0.1/';
               await launchUrl(Uri.parse(url));
             },
             child: Padding(

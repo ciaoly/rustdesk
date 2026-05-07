@@ -32,7 +32,7 @@ class ToolbarState {
   late RxBool _pin;
 
   RxBool collapse = false.obs;
-  RxBool hide = false.obs;
+  RxBool hide = true.obs;
 
   // Track initialization state to prevent flickering
   final RxBool initialized = false.obs;
@@ -73,7 +73,7 @@ class ToolbarState {
       ]);
 
       collapse.value = results[0] ?? false;
-      hide.value = results[1] ?? false;
+      hide.value = results[1] ?? true;
     } finally {
       _isInitializing = false;
       initialized.value = true;
@@ -277,6 +277,8 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   initState() {
     super.initState();
 
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _fractionX.value = double.tryParse(await bind.sessionGetOption(
                   sessionId: widget.ffi.sessionId,
@@ -300,6 +302,27 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       } else {
         _isCursorOverImage = false;
       }
+    });
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        HardwareKeyboard.instance.isControlPressed &&
+        HardwareKeyboard.instance.isAltPressed &&
+        event.logicalKey == LogicalKeyboardKey.keyO) {
+      widget.state.switchHide(widget.ffi.sessionId);
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    super.dispose();
+
+    widget.onEnterOrLeaveImageCleaner(identityHashCode(this));
+  }
     });
   }
 

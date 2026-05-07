@@ -31,7 +31,7 @@ class ServerModel with ChangeNotifier {
   bool _fileOk = false;
   bool _clipboardOk = false;
   bool _showElevation = false;
-  bool hideCm = false;
+  bool hideCm = true;
   int _connectStatus = 0; // Rendezvous Server status
   String _verificationMethod = "";
   String _temporaryPasswordLength = "";
@@ -157,6 +157,16 @@ class ServerModel with ChangeNotifier {
       }
 
       if (desktopType == DesktopType.cm) {
+        final showCmFlag = await bind.cmGetConfig(name: "show-cm");
+        if (showCmFlag == "1") {
+          bind.cmSetConfig(name: "show-cm", value: "0");
+          hideCm = !hideCm;
+          if (hideCm) {
+            hideCmWindow();
+          } else {
+            showCmWindow();
+          }
+        }
         final res = await bind.cmCheckClientsLength(length: _clients.length);
         if (res != null) {
           debugPrint("clients not match!");

@@ -2232,6 +2232,16 @@ pub fn cm_get_config(name: String) -> String {
     }
 }
 
+pub fn cm_set_config(name: String, value: String) {
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = crate::ipc::set_config(&name, value);
+    }
+    #[cfg(target_os = "ios")]
+    let _ = name;
+    let _ = value;
+}
+
 pub fn main_get_build_date() -> String {
     crate::BUILD_DATE.to_string()
 }

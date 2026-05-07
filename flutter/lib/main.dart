@@ -293,7 +293,8 @@ void runConnectionManagerScreen() async {
     const DesktopServerPage(),
     MyTheme.currentThemeMode(),
   );
-  final hide = await bind.cmGetConfig(name: "hide_cm") == 'true';
+  final hideVal = await bind.cmGetConfig(name: "hide_cm");
+  final hide = hideVal.isEmpty ? gFFI.serverModel.hideCm : hideVal == 'true';
   gFFI.serverModel.hideCm = hide;
   if (hide) {
     await hideCmWindow(isStartup: true);
