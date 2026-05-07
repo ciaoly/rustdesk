@@ -2238,8 +2238,10 @@ pub fn cm_set_config(name: String, value: String) {
         let _ = crate::ipc::set_config(&name, value);
     }
     #[cfg(target_os = "ios")]
-    let _ = name;
-    let _ = value;
+    {
+        let _ = name;
+        let _ = value;
+    }
 }
 
 pub fn main_get_build_date() -> String {

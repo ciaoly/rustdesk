@@ -137,21 +137,23 @@ pub fn global_clean() {}
 fn set_lan_defaults() {
     use hbb_common::config::{self, keys};
     let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
-    if !defaults.is_empty() {
-        return;
+    if defaults.is_empty() {
+        defaults.insert(keys::OPTION_CUSTOM_RENDEZVOUS_SERVER.to_string(), "127.0.0.1".to_string());
+        defaults.insert(keys::OPTION_RELAY_SERVER.to_string(), "127.0.0.1".to_string());
+        defaults.insert(keys::OPTION_API_SERVER.to_string(), "https://127.0.0.1".to_string());
+        defaults.insert(keys::OPTION_DIRECT_SERVER.to_string(), "Y".to_string());
+        defaults.insert(keys::OPTION_DIRECT_ACCESS_PORT.to_string(), "22228".to_string());
+        defaults.insert(keys::OPTION_VERIFICATION_METHOD.to_string(), "use-permanent-password".to_string());
+        defaults.insert(keys::OPTION_ENABLE_CAMERA.to_string(), "N".to_string());
+        defaults.insert(keys::OPTION_APPROVE_MODE.to_string(), "password".to_string());
+        defaults.insert(keys::OPTION_ALLOW_AUTO_UPDATE.to_string(), "N".to_string());
+        defaults.insert("allow-hide-cm".to_string(), "Y".to_string());
     }
-    defaults.insert(keys::OPTION_ENABLE_CHECK_UPDATE.to_string(), "N".to_string());
-    defaults.insert(keys::OPTION_ALLOW_AUTO_UPDATE.to_string(), "N".to_string());
-    defaults.insert(keys::OPTION_CUSTOM_RENDEZVOUS_SERVER.to_string(), "127.0.0.1".to_string());
-    defaults.insert(keys::OPTION_RELAY_SERVER.to_string(), "127.0.0.1".to_string());
-    defaults.insert(keys::OPTION_API_SERVER.to_string(), "https://127.0.0.1".to_string());
-    defaults.insert(keys::OPTION_DIRECT_SERVER.to_string(), "Y".to_string());
-    defaults.insert(keys::OPTION_ENABLE_UDP_PUNCH.to_string(), "Y".to_string());
-    defaults.insert(keys::OPTION_DIRECT_ACCESS_PORT.to_string(), "22228".to_string());
-    defaults.insert(keys::OPTION_VERIFICATION_METHOD.to_string(), "use-permanent-password".to_string());
-    defaults.insert(keys::OPTION_ENABLE_CAMERA.to_string(), "N".to_string());
-    defaults.insert(keys::OPTION_APPROVE_MODE.to_string(), "password".to_string());
-    defaults.insert("allow-hide-cm".to_string(), "Y".to_string());
+    let mut local_defaults = config::DEFAULT_LOCAL_SETTINGS.write().unwrap();
+    if local_defaults.is_empty() {
+        local_defaults.insert(keys::OPTION_ENABLE_CHECK_UPDATE.to_string(), "N".to_string());
+        local_defaults.insert(keys::OPTION_ENABLE_UDP_PUNCH.to_string(), "Y".to_string());
+    }
 }
 
 #[inline]

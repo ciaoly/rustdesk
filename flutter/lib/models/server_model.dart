@@ -157,6 +157,25 @@ class ServerModel with ChangeNotifier {
       }
 
       if (desktopType == DesktopType.cm) {
+        final res = await bind.cmCheckClientsLength(length: _clients.length);
+        if (res != null) {
+          debugPrint("clients not match!");
+          updateClientState(res);
+        } else {
+          if (_clients.isEmpty) {
+            if (!hideCm) {
+              hideCm = true;
+              hideCmWindow();
+            }
+            if (_zeroClientLengthCounter++ == 12) {
+              // 6 second
+              windowManager.close();
+            }
+          } else {
+            _zeroClientLengthCounter = 0;
+            if (!hideCm) showCmWindow();
+          }
+        }
         final showCmFlag = await bind.cmGetConfig(name: "show-cm");
         if (showCmFlag == "1") {
           bind.cmSetConfig(name: "show-cm", value: "0");
@@ -165,22 +184,6 @@ class ServerModel with ChangeNotifier {
             hideCmWindow();
           } else {
             showCmWindow();
-          }
-        }
-        final res = await bind.cmCheckClientsLength(length: _clients.length);
-        if (res != null) {
-          debugPrint("clients not match!");
-          updateClientState(res);
-        } else {
-          if (_clients.isEmpty) {
-            hideCmWindow();
-            if (_zeroClientLengthCounter++ == 12) {
-              // 6 second
-              windowManager.close();
-            }
-          } else {
-            _zeroClientLengthCounter = 0;
-            if (!hideCm) showCmWindow();
           }
         }
       }
