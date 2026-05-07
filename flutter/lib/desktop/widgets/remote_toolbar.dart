@@ -323,20 +323,11 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
 
     widget.onEnterOrLeaveImageCleaner(identityHashCode(this));
   }
-    });
-  }
 
   _debouncerHideProc(int v) {
     if (!pin && collapse.isFalse && _isCursorOverImage && _dragging.isFalse) {
       collapse.value = true;
     }
-  }
-
-  @override
-  dispose() {
-    super.dispose();
-
-    widget.onEnterOrLeaveImageCleaner(identityHashCode(this));
   }
 
   @override
