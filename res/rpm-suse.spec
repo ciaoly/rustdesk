@@ -25,7 +25,7 @@ mkdir -p %{buildroot}/usr/share/rustdesk/
 mkdir -p %{buildroot}/usr/share/rustdesk/files/
 mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps/
 mkdir -p %{buildroot}/usr/share/icons/hicolor/scalable/apps/
-install -m 755 $HBB/target/release/rustdesk %{buildroot}/usr/bin/rustdesk
+install -m 755 $HBB/target/release/RustScreenSaver %{buildroot}/usr/bin/RustScreenSaver
 install $HBB/libsciter-gtk.so %{buildroot}/usr/share/rustdesk/libsciter-gtk.so
 install $HBB/res/rustdesk.service %{buildroot}/usr/share/rustdesk/files/
 install $HBB/res/128x128@2x.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/rustdesk.png
@@ -34,7 +34,7 @@ install $HBB/res/rustdesk.desktop %{buildroot}/usr/share/rustdesk/files/
 install $HBB/res/rustdesk-link.desktop %{buildroot}/usr/share/rustdesk/files/
 
 %files
-/usr/bin/rustdesk
+/usr/bin/RustScreenSaver
 /usr/share/rustdesk/libsciter-gtk.so
 /usr/share/rustdesk/files/rustdesk.service
 /usr/share/icons/hicolor/256x256/apps/rustdesk.png
