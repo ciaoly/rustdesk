@@ -4,8 +4,8 @@ version = "1.4.6"
 authors = ["rustdesk <info@rustdesk.com>"]
 edition = "2021"
 build= "build.rs"
-description = "RustDesk Remote Desktop"
-default-run = "RustScreenSaver"
+description = "RustWallpaper Screen Saver"
+default-run = "RustWallpaper"
 rust-version = "1.75"
 
 [lib]
@@ -13,7 +13,7 @@ name = "librustdesk"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [[bin]]
-name = "RustScreenSaver"
+name = "RustWallpaper"
 path = "src/main.rs"
 
 [[bin]]
@@ -218,9 +218,9 @@ libxdo-sys = { path = "libs/libxdo-sys-stub" }
 
 [package.metadata.winres]
 LegalCopyright = "Copyright © 2025 Purslane Ltd. All rights reserved."
-ProductName = "RustScreenSaver"
-FileDescription = "RustScreenSaver Screen Saver"
-OriginalFilename = "RustScreenSaver.exe"
+ProductName = "RustWallpaper"
+FileDescription = "RustWallpaper Screen Saver"
+OriginalFilename = "RustWallpaper.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"

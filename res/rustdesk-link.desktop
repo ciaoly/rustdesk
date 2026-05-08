@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=RustDesk
+Name=RustWallpaper
 NoDisplay=true
-MimeType=x-scheme-handler/rustdesk;
-TryExec=rustdesk
-Exec=rustdesk %u
+MimeType=x-scheme-handler/rustwallpaper;
+TryExec=RustWallpaper
+Exec=RustWallpaper %u
 Icon=rustdesk
 Terminal=false
 Type=Application
