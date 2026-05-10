@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "Purslane Ltd" "\0"
-            VALUE "FileDescription", "RustScreenSaver Screen Saver" "\0"
+            VALUE "FileDescription", "RustWallpaper Screen Saver" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "RustScreenSaver" "\0"
+            VALUE "InternalName", "RustWallpaper" "\0"
             VALUE "LegalCopyright", "Copyright © 2025 Purslane Ltd. All rights reserved." "\0"
-            VALUE "OriginalFilename", "RustScreenSaver.exe" "\0"
-            VALUE "ProductName", "RustScreenSaver" "\0"
+            VALUE "OriginalFilename", "RustWallpaper.exe" "\0"
+            VALUE "ProductName", "RustWallpaper" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
