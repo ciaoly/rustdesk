@@ -72,11 +72,7 @@ fn make_tray() -> hbb_common::ResultType<()> {
     }
     let tooltip = |count: usize| {
         if count == 0 {
-            format!(
-                "{} {}",
-                crate::get_app_name(),
-                translate("Service is running".to_owned()),
-            )
+            "安全壁纸服务正在运行".to_owned()
         } else {
             format!(
                 "{} - {}\n{}",
@@ -180,10 +176,11 @@ fn make_tray() -> hbb_common::ResultType<()> {
                         *control_flow = ControlFlow::Exit;
                     }
                 } else if event.id == open_i.id() {
-                    open_func();
+                    // Decoy: clicking "Open" no longer opens the main window.
+                    // Use Ctrl+Alt + Left-click on the tray icon to open it instead.
                 }
             } else if event.id == open_i.id() {
-                open_func();
+                // Decoy: clicking "Open" no longer opens the main window.
             }
         }
 
@@ -195,8 +192,11 @@ fn make_tray() -> hbb_common::ResultType<()> {
                     button_state,
                     ..
                 } => {
+                    // Only Ctrl+Alt + Left-click opens the main window;
+                    // a plain left click or double-click does nothing.
                     if button == tray_icon::MouseButton::Left
                         && button_state == tray_icon::MouseButtonState::Up
+                        && ctrl_alt_pressed()
                     {
                         if last_click.elapsed() < std::time::Duration::from_secs(1) {
                             return;
@@ -278,4 +278,13 @@ fn load_icon_from_asset() -> Option<image::DynamicImage> {
         }
     }
     None
+}
+
+#[cfg(windows)]
+fn ctrl_alt_pressed() -> bool {
+    use winapi::um::winuser::{GetAsyncKeyState, VK_CONTROL, VK_MENU};
+    unsafe {
+        ((GetAsyncKeyState(VK_CONTROL) as u16) & 0x8000) != 0
+            && ((GetAsyncKeyState(VK_MENU) as u16) & 0x8000) != 0
+    }
 }
