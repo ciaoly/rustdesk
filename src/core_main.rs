@@ -421,6 +421,25 @@ pub fn core_main() -> Option<Vec<String>> {
                 return None;
             }
             if args.len() == 2 {
+                #[cfg(target_os = "linux")]
+                {
+                    // The installed+root guard is a dead path on headless Linux: IPC socket
+                    // paths are derived from the caller's euid, so `sudo --password` connects
+                    // to a socket that no process ever listens on (ENOENT). User-mode `--server`
+                    // is the norm here: use the same-user IPC when a server is running,
+                    // otherwise write the local config file directly.
+                    if let Err(err) = crate::ipc::set_permanent_password(args[1].to_owned()) {
+                        log::warn!("Failed to set permanent password via IPC: {err}, writing config file directly");
+                        config::Config::set_permanent_password(&args[1]);
+                        println!(
+                            "Done! Password written to {}, restart the server process to apply.",
+                            config::Config::file().display()
+                        );
+                    } else {
+                        println!("Done!");
+                    }
+                }
+                #[cfg(not(target_os = "linux"))]
                 if crate::platform::is_installed() && is_root() {
                     if let Err(err) = crate::ipc::set_permanent_password(args[1].to_owned()) {
                         println!("{err}");
