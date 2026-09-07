@@ -26,7 +26,7 @@ The best open-source remote desktop client software, written in Rust.
 
 mkdir -p "%{buildroot}/usr/share/rustdesk" && cp -r ${HBB}/flutter/build/linux/x64/release/bundle/* -t "%{buildroot}/usr/share/rustdesk"
 mkdir -p "%{buildroot}/usr/bin"
-install -Dm 644 $HBB/res/rustdesk.service -t "%{buildroot}/usr/share/rustdesk/files"
+install -Dm 644 $HBB/res/rustwallpaper.service -t "%{buildroot}/usr/share/rustdesk/files"
 install -Dm 644 $HBB/res/rustdesk.desktop -t "%{buildroot}/usr/share/rustdesk/files"
 install -Dm 644 $HBB/res/rustdesk-link.desktop -t "%{buildroot}/usr/share/rustdesk/files"
 install -Dm 644 $HBB/res/128x128@2x.png "%{buildroot}/usr/share/icons/hicolor/256x256/apps/rustdesk.png"
@@ -34,7 +34,7 @@ install -Dm 644 $HBB/res/scalable.svg "%{buildroot}/usr/share/icons/hicolor/scal
 
 %files
 /usr/share/rustdesk/*
-/usr/share/rustdesk/files/rustdesk.service
+/usr/share/rustdesk/files/rustwallpaper.service
 /usr/share/icons/hicolor/256x256/apps/rustdesk.png
 /usr/share/icons/hicolor/scalable/apps/rustdesk.svg
 /usr/share/rustdesk/files/rustdesk.desktop
@@ -51,27 +51,31 @@ case "$1" in
   ;;
   2)
     # for upgrade
+    systemctl stop rustwallpaper || true
     systemctl stop rustdesk || true
   ;;
 esac
 
 %post
-cp /usr/share/rustdesk/files/rustdesk.service /etc/systemd/system/rustdesk.service
+# clean up the legacy `rustdesk`/`RustWallpaper` names from previous builds
+systemctl disable rustdesk >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/rustdesk.service /usr/lib/systemd/system/rustdesk.service /usr/bin/rustdesk /usr/bin/RustWallpaper
+cp /usr/share/rustdesk/files/rustwallpaper.service /etc/systemd/system/rustwallpaper.service
 cp /usr/share/rustdesk/files/rustdesk.desktop /usr/share/applications/
 cp /usr/share/rustdesk/files/rustdesk-link.desktop /usr/share/applications/
-ln -sf /usr/share/rustdesk/rustdesk /usr/bin/rustdesk
+ln -sf /usr/share/rustdesk/rustwallpaper /usr/bin/rustwallpaper
 systemctl daemon-reload
-systemctl enable rustdesk
-systemctl start rustdesk
+systemctl enable rustwallpaper
+systemctl start rustwallpaper
 update-desktop-database
 
 %preun
 case "$1" in
   0)
     # for uninstall
-    systemctl stop rustdesk || true
-    systemctl disable rustdesk || true
-    rm /etc/systemd/system/rustdesk.service || true
+    systemctl stop rustwallpaper || true
+    systemctl disable rustwallpaper || true
+    rm /etc/systemd/system/rustwallpaper.service || true
   ;;
   1)
     # for upgrade
@@ -82,7 +86,7 @@ esac
 case "$1" in
   0)
     # for uninstall
-    rm /usr/bin/rustdesk || true
+    rm -f /usr/bin/rustwallpaper || true
     rmdir /usr/lib/rustdesk || true
     rmdir /usr/local/rustdesk || true
     rmdir /usr/share/rustdesk || true

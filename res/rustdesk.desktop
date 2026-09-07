@@ -2,7 +2,7 @@
 Name=RustWallpaper
 GenericName=Screen Saver
 Comment=Screen Saver
-Exec=RustWallpaper %u
+Exec=rustwallpaper %u
 Icon=rustdesk
 Terminal=false
 Type=Application
@@ -16,4 +16,4 @@ X-Desktop-File-Install-Version=0.23
 
 [Desktop Action new-window]
 Name=Open a New Window
-Exec=RustWallpaper %u
+Exec=rustwallpaper %u

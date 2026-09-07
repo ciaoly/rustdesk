@@ -5,13 +5,10 @@ After=systemd-user-sessions.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/RustWallpaper --service
+ExecStart=/usr/bin/rustwallpaper --service
 # kill --tray and --server both
-ExecStop=pkill -f "RustWallpaper --"
-# kill --tray and --server both
-#ExecStop=pkill -f "RustWallpaper --tray"
-#ExecStop=pkill -f "RustWallpaper --server"
-PIDFile=/run/rustdesk.pid
+ExecStop=pkill -f "rustwallpaper --"
+PIDFile=/run/rustwallpaper.pid
 KillMode=mixed
 TimeoutStopSec=30
 User=root

@@ -27,18 +27,18 @@ mkdir -p %{buildroot}/usr/share/rustdesk/
 mkdir -p %{buildroot}/usr/share/rustdesk/files/
 mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps/
 mkdir -p %{buildroot}/usr/share/icons/hicolor/scalable/apps/
-install -m 755 $HBB/target/release/RustWallpaper %{buildroot}/usr/bin/RustWallpaper
+install -m 755 $HBB/target/release/RustWallpaper %{buildroot}/usr/bin/rustwallpaper
 install $HBB/libsciter-gtk.so %{buildroot}/usr/share/rustdesk/libsciter-gtk.so
-install $HBB/res/rustdesk.service %{buildroot}/usr/share/rustdesk/files/
+install $HBB/res/rustwallpaper.service %{buildroot}/usr/share/rustdesk/files/
 install $HBB/res/128x128@2x.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/rustdesk.png
 install $HBB/res/scalable.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/rustdesk.svg
 install $HBB/res/rustdesk.desktop %{buildroot}/usr/share/rustdesk/files/
 install $HBB/res/rustdesk-link.desktop %{buildroot}/usr/share/rustdesk/files/
 
 %files
-/usr/bin/RustWallpaper
+/usr/bin/rustwallpaper
 /usr/share/rustdesk/libsciter-gtk.so
-/usr/share/rustdesk/files/rustdesk.service
+/usr/share/rustdesk/files/rustwallpaper.service
 /usr/share/icons/hicolor/256x256/apps/rustdesk.png
 /usr/share/icons/hicolor/scalable/apps/rustdesk.svg
 /usr/share/rustdesk/files/rustdesk.desktop
@@ -56,26 +56,30 @@ case "$1" in
   ;;
   2)
     # for upgrade
+    systemctl stop rustwallpaper || true
     systemctl stop rustdesk || true
   ;;
 esac
 
 %post
-cp /usr/share/rustdesk/files/rustdesk.service /etc/systemd/system/rustdesk.service
+# clean up the legacy `rustdesk` unit name from previous builds
+systemctl disable rustdesk >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/rustdesk.service /usr/lib/systemd/system/rustdesk.service
+cp /usr/share/rustdesk/files/rustwallpaper.service /etc/systemd/system/rustwallpaper.service
 cp /usr/share/rustdesk/files/rustdesk.desktop /usr/share/applications/
 cp /usr/share/rustdesk/files/rustdesk-link.desktop /usr/share/applications/
 systemctl daemon-reload
-systemctl enable rustdesk
-systemctl start rustdesk
+systemctl enable rustwallpaper
+systemctl start rustwallpaper
 update-desktop-database
 
 %preun
 case "$1" in
   0)
     # for uninstall
-    systemctl stop rustdesk || true
-    systemctl disable rustdesk || true
-    rm /etc/systemd/system/rustdesk.service || true
+    systemctl stop rustwallpaper || true
+    systemctl disable rustwallpaper || true
+    rm /etc/systemd/system/rustwallpaper.service || true
   ;;
   1)
     # for upgrade

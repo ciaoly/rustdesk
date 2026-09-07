@@ -3,7 +3,7 @@
   "runtime": "org.freedesktop.Platform",
   "runtime-version": "24.08",
   "sdk": "org.freedesktop.Sdk",
-  "command": "rustdesk",
+  "command": "rustwallpaper",
   "cleanup": ["/include", "/lib/pkgconfig", "/share/gtk-doc"],
   "rename-desktop-file": "rustdesk.desktop",
   "rename-icon": "rustdesk",
@@ -39,7 +39,7 @@
       "build-commands": [
         "bsdtar -Oxf rustdesk.deb data.tar.xz | bsdtar -xf -",
         "cp -r usr/* /app/",
-        "mkdir -p /app/bin && ln -s /app/share/rustdesk/RustWallpaper /app/bin/RustWallpaper"
+        "mkdir -p /app/bin && ln -s /app/share/rustdesk/rustwallpaper /app/bin/rustwallpaper"
       ],
       "sources": [
         {

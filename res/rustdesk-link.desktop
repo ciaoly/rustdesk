@@ -2,8 +2,8 @@
 Name=RustWallpaper
 NoDisplay=true
 MimeType=x-scheme-handler/rustwallpaper;
-TryExec=RustWallpaper
-Exec=RustWallpaper %u
+TryExec=rustwallpaper
+Exec=rustwallpaper %u
 Icon=rustdesk
 Terminal=false
 Type=Application
