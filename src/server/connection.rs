@@ -1927,6 +1927,11 @@ impl Connection {
     }
 
     fn try_start_cm(&mut self, peer_id: String, name: String, authorized: bool) {
+        // Sciter build runs with no connection-manager UI at all (incoming connections
+        // must be silent), so there is nothing to notify. See try_start_cm_ipc.
+        if cfg!(not(feature = "flutter")) {
+            return;
+        }
         self.send_to_cm(ipc::Data::Login {
             id: self.inner.id(),
             is_file_transfer: self.file_transfer.is_some(),
@@ -2280,6 +2285,14 @@ impl Connection {
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn try_start_cm_ipc(&mut self) {
+        // Sciter build: never spawn or bridge to a `--cm` process. A hidden sciter cm
+        // window never attaches its DOM, so the `_cm` listener is absent; the resulting
+        // "Failed to connect to connection manager" is delivered as Data::CmErr and
+        // kills the session (client sees connection reset before the password prompt).
+        // Skipping the bridge entirely is the correct zero-UI behavior for this build.
+        if cfg!(not(feature = "flutter")) {
+            return;
+        }
         if let Some(p) = self.start_cm_ipc_para.take() {
             tokio::spawn(async move {
                 #[cfg(windows)]
