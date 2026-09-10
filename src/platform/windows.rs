@@ -1341,27 +1341,205 @@ pub fn copy_raw_cmd(src_raw: &str, _raw: &str, _path: &str) -> ResultType<String
     return Ok(main_raw);
 }
 
-pub fn copy_exe_cmd(src_exe: &str, exe: &str, path: &str) -> ResultType<String> {
+/// Where the elevated install/update script records what it did. The script runs elevated
+/// and hidden, so its output is otherwise lost - this is the only trace of a failed
+/// install on a machine we cannot debug directly. A public directory is used because the
+/// script may run as another user (the elevated account), the app reads it back.
+fn get_install_log_path() -> PathBuf {
+    get_public_base_dir()
+        .join(crate::get_app_name())
+        .join("install.log")
+}
+
+/// Copy of the running executable, removed again when the install script is done with it.
+struct StagedExe(PathBuf);
+
+impl StagedExe {
+    fn as_str(&self) -> String {
+        self.0.to_string_lossy().to_string()
+    }
+}
+
+impl Drop for StagedExe {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// Copy of the running executable, used as the source for the install. Copying an exe
+/// which is currently running fails on some machines, and the `/C` of the xcopy makes the
+/// script carry on without it. Copying it to a scratch file first leaves the script with a
+/// plain file which is not in use. `None` means the script falls back to the running exe.
+fn stage_current_exe() -> Option<StagedExe> {
+    let src = match std::env::current_exe() {
+        Ok(src) => src,
+        Err(err) => {
+            log::error!("Failed to get current exe: {err}");
+            return None;
+        }
+    };
+    let mut dir = std::env::temp_dir();
+    // Same workaround as in `write_cmds`: a bat file started elevated misbehaves when
+    // its path contains these characters.
+    if ["&", "@", "^"]
+        .iter()
+        .any(|s| dir.to_string_lossy().contains(s))
+    {
+        if let Ok(d) = user_accessible_folder() {
+            dir = d;
+        }
+    }
+    let dst = dir.join(format!(
+        "{}_stage_{}.exe",
+        crate::get_app_name(),
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&dst);
+    if let Err(err) = std::fs::copy(&src, &dst) {
+        log::error!(
+            "Failed to stage {} to {}: {err}",
+            src.to_string_lossy(),
+            dst.to_string_lossy()
+        );
+        return None;
+    }
+    Some(StagedExe(dst))
+}
+
+/// Truncates the install log and marks the beginning of a new run, so that a log from an
+/// earlier attempt is never mistaken for this one.
+fn get_install_log_init() -> String {
+    let log = get_install_log_path();
+    let log = log.to_string_lossy().to_string();
+    let log_dir = PathBuf::from(&log)
+        .parent()
+        .map(|x| x.to_string_lossy().to_string())
+        .unwrap_or_default();
+    format!(
+        "if not exist \"{log_dir}\" md \"{log_dir}\"\n> \"{log}\" echo [install] start {}",
+        get_log_tag()
+    )
+}
+
+/// Identifies the log of this run. The app is not the process which runs the script
+/// (`runas` starts another one), so this tag is the only way to tell whether the script
+/// ran at all - a log without it is left over from an earlier attempt.
+fn get_log_tag() -> String {
+    format!("pid={}", std::process::id())
+}
+
+/// The install script runs elevated and with the window hidden, so whatever it printed is
+/// lost. Log what it wrote down, this is the only trace of a failed install.
+fn dump_install_log(tip: &str) {
+    let log = get_install_log_path();
+    let content = match std::fs::read_to_string(&log) {
+        Ok(content) => content,
+        Err(err) => {
+            log::warn!(
+                "{tip}: failed to read {} ({err}), the install script probably did not run",
+                log.to_string_lossy()
+            );
+            return;
+        }
+    };
+    if !content.contains(get_log_tag().as_str()) {
+        log::warn!(
+            "{tip}: {} does not contain the marker of this run, the install script did not run. Old content:\n{content}",
+            log.to_string_lossy()
+        );
+    } else {
+        log::info!("{tip}, install log:\n{content}");
+    }
+}
+
+/// A log from an earlier attempt must not be mistaken for this run's one, and the users
+/// who can read it back may not be the ones who wrote it.
+fn clear_install_log() {
+    let log = get_install_log_path();
+    if let Err(err) = std::fs::remove_file(&log) {
+        if err.kind() != std::io::ErrorKind::NotFound {
+            log::debug!("Failed to remove {}: {err}", log.to_string_lossy());
+        }
+    }
+}
+
+/// The install runs in a hidden window and the app exits right after it, so a failure is
+/// otherwise indistinguishable from a success. Tell the user, and point them at the log.
+pub fn show_install_failed(err: &str) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use winapi::um::winuser::{MessageBoxW, MB_ICONERROR, MB_OK, MB_SETFOREGROUND};
+        let text = format!(
+            "Failed to install:\n{err}\n\nThe details were written to {}",
+            get_install_log_path().to_string_lossy()
+        );
+        let caption = crate::get_app_name();
+        let to_wide = |s: &str| -> Vec<u16> {
+            std::ffi::OsStr::new(s)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect()
+        };
+        let text = to_wide(&text);
+        let caption = to_wide(&caption);
+        unsafe {
+            MessageBoxW(
+                std::ptr::null_mut(),
+                text.as_ptr(),
+                caption.as_ptr(),
+                MB_OK | MB_ICONERROR | MB_SETFOREGROUND,
+            );
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = err;
+}
+
+/// Everything else - shortcuts, the uninstall registry entry and the service - points at
+/// `exe`, so the script must not report success when it is missing. It is verified at the
+/// end of the install instead of here, so that a partial install still leaves the user
+/// with a way to uninstall.
+pub fn copy_exe_cmd(
+    src_exe: &str,
+    exe: &str,
+    path: &str,
+    staged_exe: Option<&str>,
+    log: &str,
+) -> ResultType<String> {
     let main_exe = copy_raw_cmd(src_exe, exe, path)?;
-    // The directory copy above can silently skip the running executable itself (the file
-    // is in use). Everything else - shortcuts, the uninstall registry entry and the
-    // service - points at `exe`, so make sure it really is there: rename it if it was
-    // copied under another name, copy it explicitly otherwise, and fail the script
-    // (leaving the `.undone` marker behind, so the caller reports "install failed")
-    // instead of reporting success with no usable exe installed.
     let src_name = PathBuf::from(src_exe)
         .file_name()
         .map(|x| x.to_string_lossy().to_string())
         .unwrap_or_default();
+    let log_dir = PathBuf::from(log)
+        .parent()
+        .map(|x| x.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let copy_staged = match staged_exe {
+        Some(staged) => format!(
+            "
+        if not exist \"{exe}\" if exist \"{staged}\" copy /Y \"{staged}\" \"{exe}\"
+        if not exist \"{exe}\" ping -n 2 127.0.0.1 > nul
+        if not exist \"{exe}\" if exist \"{staged}\" copy /Y \"{staged}\" \"{exe}\"
+        "
+        ),
+        None => "".to_owned(),
+    };
     Ok(format!(
         "
+        if not exist \"{log_dir}\" md \"{log_dir}\"
         {main_exe}
+        echo [exe] copied the source folder >> \"{log}\" 2>&1
+        dir /a /b \"{path}\" >> \"{log}\" 2>&1
         copy /Y \"{ORIGIN_PROCESS_EXE}\" \"{path}\\{broker_exe}\"
         if not exist \"{exe}\" if exist \"{path}\\{src_name}\" move /Y \"{path}\\{src_name}\" \"{exe}\"
+        {copy_staged}
         if not exist \"{exe}\" copy /Y \"{src_exe}\" \"{exe}\"
-        if not exist \"{exe}\" (
-            echo Failed to copy {src_name} to {path}
-            exit /b 1
+        if exist \"{exe}\" (
+            echo [exe] the main exe is in place >> \"{log}\" 2>&1
+        ) else (
+            echo [exe] the main exe is missing after the copy >> \"{log}\" 2>&1
         )
         ",
         ORIGIN_PROCESS_EXE = win_topmost_window::ORIGIN_PROCESS_EXE,
@@ -1606,11 +1784,30 @@ copy /Y \"{tmp_path}\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\
         "".to_owned()
     };
 
+    let install_log = get_install_log_path().to_string_lossy().to_string();
+    let staged_exe = stage_current_exe();
+    let staged_exe_str = staged_exe.as_ref().map(|x| x.as_str());
+    // Everything the install creates - the shortcuts, the uninstall entry and the service -
+    // points at `exe`, so the script must not report success while it is missing. The check
+    // runs at the very end, after the shortcuts and the service were created, so that a
+    // partial install still leaves the user with a way to uninstall. `exit /b 1` keeps the
+    // `.undone` marker of `write_cmds` in place, which is how `run_cmds` learns about it.
+    let verify_exe = format!(
+        "
+if not exist \"{exe}\" (
+    echo [install] FAILED: the main exe is missing >> \"{install_log}\" 2>&1
+    exit /b 1
+)
+echo [install] done >> \"{install_log}\" 2>&1
+"
+    );
+
     // Remember to check if `update_me` need to be changed if changing the `cmds`.
     // No need to merge the existing dup code, because the code in these two functions are too critical.
     // New code should be written in a common function.
     let cmds = format!(
         "
+{install_log_init}
 {uninstall_str}
 chcp 65001
 md \"{path}\"
@@ -1639,6 +1836,7 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
 {after_install}
 {install_remote_printer}
 {sleep}
+{verify_exe}
     ",
         display_icon = get_custom_icon(&path, &cur_exe).unwrap_or(exe.to_string()),
         version = crate::VERSION.replace("-", "."),
@@ -1651,10 +1849,19 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
         ),
         sleep = if debug { "timeout 300" } else { "" },
         dels = if debug { "" } else { &dels },
-        copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,
+        install_log_init = get_install_log_init(),
+        verify_exe = verify_exe,
+        copy_exe = copy_exe_cmd(&src_exe, &exe, &path, staged_exe_str.as_deref(), &install_log)?,
         import_config = get_import_config(&exe),
     );
-    run_cmds(cmds, debug, "install")?;
+    clear_install_log();
+    match run_cmds(cmds, debug, "install") {
+        Ok(_) => dump_install_log("install finished"),
+        Err(err) => {
+            dump_install_log("install failed");
+            return Err(err);
+        }
+    }
     run_after_run_cmds(silent);
     Ok(())
 }
@@ -3192,6 +3399,7 @@ reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
     // But only 2 processes are shown in the tasklist.
     let cmds = format!(
         "
+{install_log_init}
 chcp 65001
 sc stop {app_name}
 taskkill /F /IM {app_name}.exe{filter}
@@ -3205,7 +3413,14 @@ taskkill /F /IM {app_name}.exe{filter}
 {sleep}
     ",
         app_name = app_name,
-        copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,
+        install_log_init = get_install_log_init(),
+        copy_exe = copy_exe_cmd(
+            &src_exe,
+            &exe,
+            &path,
+            None,
+            &get_install_log_path().to_string_lossy()
+        )?,
         rename_exe = rename_exe_cmd(&src_exe, &path)?,
         remove_meta_toml = remove_meta_toml_cmd(is_msi.unwrap_or(true), &path),
         sleep = if debug { "timeout 300" } else { "" },
@@ -3268,7 +3483,14 @@ taskkill /F /IM {app_name}.exe{filter}
         }),
     };
 
-    run_cmds(cmds, debug, "update")?;
+    clear_install_log();
+    match run_cmds(cmds, debug, "update") {
+        Ok(_) => dump_install_log("update finished"),
+        Err(err) => {
+            dump_install_log("update failed");
+            return Err(err);
+        }
+    }
 
     std::thread::sleep(std::time::Duration::from_millis(2000));
     log::info!("Update completed.");
