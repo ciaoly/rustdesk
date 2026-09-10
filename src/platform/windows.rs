@@ -1326,8 +1326,11 @@ fn get_install_info_with_subkey(subkey: String) -> (String, String, String, Stri
 }
 
 pub fn copy_raw_cmd(src_raw: &str, _raw: &str, _path: &str) -> ResultType<String> {
+    // Note: no `/Z`. Restartable mode is known to fail with "Access is denied" for
+    // files that are in use (i.e. the running exe itself) on Windows 7, and the
+    // `/C` above would then silently skip that file and carry on.
     let main_raw = format!(
-        "XCOPY \"{}\" \"{}\" /Y /E /H /C /I /K /R /Z",
+        "XCOPY \"{}\" \"{}\" /Y /E /H /C /I /K /R",
         PathBuf::from(src_raw)
             .parent()
             .ok_or(anyhow!("Can't get parent directory of {src_raw}"))?
@@ -1340,10 +1343,26 @@ pub fn copy_raw_cmd(src_raw: &str, _raw: &str, _path: &str) -> ResultType<String
 
 pub fn copy_exe_cmd(src_exe: &str, exe: &str, path: &str) -> ResultType<String> {
     let main_exe = copy_raw_cmd(src_exe, exe, path)?;
+    // The directory copy above can silently skip the running executable itself (the file
+    // is in use). Everything else - shortcuts, the uninstall registry entry and the
+    // service - points at `exe`, so make sure it really is there: rename it if it was
+    // copied under another name, copy it explicitly otherwise, and fail the script
+    // (leaving the `.undone` marker behind, so the caller reports "install failed")
+    // instead of reporting success with no usable exe installed.
+    let src_name = PathBuf::from(src_exe)
+        .file_name()
+        .map(|x| x.to_string_lossy().to_string())
+        .unwrap_or_default();
     Ok(format!(
         "
         {main_exe}
         copy /Y \"{ORIGIN_PROCESS_EXE}\" \"{path}\\{broker_exe}\"
+        if not exist \"{exe}\" if exist \"{path}\\{src_name}\" move /Y \"{path}\\{src_name}\" \"{exe}\"
+        if not exist \"{exe}\" copy /Y \"{src_exe}\" \"{exe}\"
+        if not exist \"{exe}\" (
+            echo Failed to copy {src_name} to {path}
+            exit /b 1
+        )
         ",
         ORIGIN_PROCESS_EXE = win_topmost_window::ORIGIN_PROCESS_EXE,
         broker_exe = win_topmost_window::INJECTED_PROCESS_EXE,

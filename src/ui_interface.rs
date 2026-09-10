@@ -652,11 +652,19 @@ pub fn set_permanent_password_with_result(password: String) -> bool {
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        match crate::ipc::set_permanent_password_with_ack(password) {
+        match crate::ipc::set_permanent_password_with_ack(password.clone()) {
             Ok(ok) => ok,
             Err(err) => {
-                log::warn!("Failed to set permanent password via IPC: {err}");
-                false
+                // No IPC endpoint answered (portable build with no server process listening,
+                // service not running, ...). Writing this process' config file directly is
+                // still far better than silently doing nothing: the local server of this
+                // user reads that file, and reporting failure left users with no usable
+                // password at all.
+                log::warn!(
+                    "Failed to set permanent password via IPC: {err}, writing config directly"
+                );
+                config::Config::set_permanent_password(&password);
+                config::Config::has_local_permanent_password()
             }
         }
     }
