@@ -318,12 +318,34 @@ jobs:
         with:
           version: ${{ env.LLVM_VERSION }}
 
+      # The sciter build needs the 32-bit host toolchain (nightly because of the
+      # abi_thiscall feature), which is not this runner's own host triple. `dtolnay/rust-toolchain`
+      # cannot pass `--force-non-host`, and current rustup refuses such a toolchain with
+      # "may not be able to run on this system" (rustup 1.28+; it is not in the action's
+      # inputs), so install it here instead. The fallback keeps older rustup working, which
+      # does not know the flag. The toolchain itself is left as it was: switching to a
+      # x86_64 host with an i686 target would change what the build links against.
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: nightly-2023-10-13-${{ matrix.job.target }} # must use nightly here, because of abi_thiscall feature required
-          targets: ${{ matrix.job.target }}
-          components: "rustfmt"
+        shell: bash
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location \
+              --silent --show-error --fail https://win.rustup.rs/x86_64 \
+              --output "$RUNNER_TEMP/rustup-init.exe"
+            "$RUNNER_TEMP/rustup-init.exe" -y --default-toolchain none --no-modify-path
+          fi
+          tc="nightly-2023-10-13-${{ matrix.job.target }}"
+          flags="--target ${{ matrix.job.target }} --component rustfmt --profile minimal --no-self-update"
+          rustup toolchain install "$tc" $flags --force-non-host \
+            || rustup toolchain install "$tc" $flags
+          rustup default "$tc"
+          # Same environment as the `dtolnay/rust-toolchain` action sets.
+          {
+            echo "CARGO_INCREMENTAL=0"
+            echo "CARGO_TERM_COLOR=always"
+            echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse"
+            echo "CARGO_HTTP_MULTIPLEXING=false"
+          } >> "$GITHUB_ENV"
 
       - uses: Swatinem/rust-cache@v2
         with:
