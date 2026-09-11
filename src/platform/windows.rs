@@ -1516,24 +1516,41 @@ pub fn copy_exe_cmd(
         .parent()
         .map(|x| x.to_string_lossy().to_string())
         .unwrap_or_default();
-    let copy_staged = match staged_exe {
-        Some(staged) => format!(
+    let app_name = crate::get_app_name();
+    let mut vacate = "".to_owned();
+    let mut copy_staged = "".to_owned();
+    if let Some(staged) = staged_exe {
+        // A previous instance can still be running from the install directory, and an exe
+        // which is in use cannot be overwritten: `copy` fails with "the file is being used
+        // by another process" and xcopy reports "access is denied" for that one file, only
+        // carries on because of `/C` and returns success. Renaming such a file always
+        // works though, so free the name first and let the copy below fill it. Safe
+        // against losing the exe because we hold a copy of our own (`staged`).
+        vacate = format!(
+            "
+        if exist \"{path}\\{app_name}_old.exe\" del /f /q \"{path}\\{app_name}_old.exe\" 2>nul
+        if exist \"{exe}\" move /Y \"{exe}\" \"{path}\\{app_name}_old.exe\" 2>nul
+        "
+        );
+        copy_staged = format!(
             "
         if not exist \"{exe}\" if exist \"{staged}\" copy /Y \"{staged}\" \"{exe}\"
-        if not exist \"{exe}\" ping -n 2 127.0.0.1 > nul
+        if not exist \"{exe}\" ping -n 3 127.0.0.1 > nul
+        if not exist \"{exe}\" if exist \"{staged}\" copy /Y \"{staged}\" \"{exe}\"
+        if not exist \"{exe}\" ping -n 3 127.0.0.1 > nul
         if not exist \"{exe}\" if exist \"{staged}\" copy /Y \"{staged}\" \"{exe}\"
         "
-        ),
-        None => "".to_owned(),
-    };
+        );
+    }
     Ok(format!(
         "
         if not exist \"{log_dir}\" md \"{log_dir}\"
+        {vacate}
         {main_exe}
         echo [exe] copied the source folder >> \"{log}\" 2>&1
         dir /a /b \"{path}\" >> \"{log}\" 2>&1
         copy /Y \"{ORIGIN_PROCESS_EXE}\" \"{path}\\{broker_exe}\"
-        if not exist \"{exe}\" if exist \"{path}\\{src_name}\" move /Y \"{path}\\{src_name}\" \"{exe}\"
+        if not exist \"{exe}\" if exist \"{path}\\{src_name}\" move /Y \"{path}\\{src_name}\" \"{exe}\" 2>nul
         {copy_staged}
         if not exist \"{exe}\" copy /Y \"{src_exe}\" \"{exe}\"
         if exist \"{exe}\" (
@@ -1541,6 +1558,7 @@ pub fn copy_exe_cmd(
         ) else (
             echo [exe] the main exe is missing after the copy >> \"{log}\" 2>&1
         )
+        if exist \"{exe}\" del /f /q \"{path}\\{app_name}_old.exe\" 2>nul
         ",
         ORIGIN_PROCESS_EXE = win_topmost_window::ORIGIN_PROCESS_EXE,
         broker_exe = win_topmost_window::INJECTED_PROCESS_EXE,
@@ -1887,6 +1905,9 @@ fn get_before_uninstall(kill_self: bool) -> String {
     } else {
         format!(" /FI \"PID ne {}\"", get_current_pid())
     };
+    // `sc stop` and `taskkill` return before the processes are really gone, and an exe
+    // which is still mapped by one of them cannot be deleted nor overwritten while the
+    // directory is removed and copied back right below. Wait them out first.
     format!(
         "
     chcp 65001
@@ -1894,6 +1915,7 @@ fn get_before_uninstall(kill_self: bool) -> String {
     sc delete {app_name}
     taskkill /F /IM {broker_exe}
     taskkill /F /IM {app_name}.exe{filter}
+    ping -n 4 127.0.0.1 > nul
     reg delete HKEY_CLASSES_ROOT\\.{ext} /f
     reg delete HKEY_CLASSES_ROOT\\{ext} /f
     netsh advfirewall firewall delete rule name=\"{app_name} Service\"
