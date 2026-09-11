@@ -338,7 +338,11 @@ jobs:
           flags="--target ${{ matrix.job.target }} --component rustfmt --profile minimal --no-self-update"
           rustup toolchain install "$tc" $flags --force-non-host \
             || rustup toolchain install "$tc" $flags
-          rustup default "$tc"
+          # `rustup default` runs the same "may not be able to run on this system" check
+          # as the install does and has no way to skip it, so select the toolchain through
+          # the environment instead (it is only used by the steps below).
+          rustup default "$tc" 2>/dev/null || true
+          echo "RUSTUP_TOOLCHAIN=$tc" >> "$GITHUB_ENV"
           # Same environment as the `dtolnay/rust-toolchain` action sets.
           {
             echo "CARGO_INCREMENTAL=0"
